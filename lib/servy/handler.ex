@@ -2,8 +2,10 @@ defmodule Servy.Handler do
   def handle(request) do
     request 
     |> parse 
+    |> rewrite_path
     |> log
     |> route 
+    |> track
     |> format_response
 
   end
@@ -17,7 +19,20 @@ defmodule Servy.Handler do
      %{ method: method, path: path,  status: nil, resp_body: "" }
   end
 
+  def track(%{status: 404, path: path} = conv) do
+    IO.puts "Warning: #{path} is on the loose!"
+    conv
+  end
+
+  def track(conv), do: conv
+
   def log(conv), do: IO.inspect conv
+
+  def rewrite_path(%{path: "/wildlife"}= conv) do 
+    %{ conv | path: "/wildthings" }
+  end
+
+  def rewrite_path(conv), do: conv
 
   def route(conv) do 
     route(conv, conv.method, conv.path)
@@ -91,7 +106,16 @@ request4 = """
   Accept:*/*
 
   """
+request5 = """
+  GET /wildlife HTTP/1.1
+  Host: example.com
+  User-Agent: ExampleBrowser/1.0
+  Accept:*/*
+
+  """
+
   IO.puts Servy.Handler.handle(request)
   IO.puts Servy.Handler.handle(request2)
   IO.puts Servy.Handler.handle(request3)
   IO.puts Servy.Handler.handle(request4)
+  IO.puts Servy.Handler.handle(request5)
