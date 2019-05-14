@@ -1,4 +1,14 @@
 defmodule Servy.Handler do 
+
+  @pages_path Path.expand("../pages", __DIR__)
+
+  import Servy.Plugins, only: [rewrite_path: 1, log: 1, track: 1]
+  import Servy.Parser, only: [parse: 1]
+  
+  @moduledoc "Handles HTTP requests."
+
+
+  @doc "Transforms a request into a response"
   def handle(request) do
     request 
     |> parse 
@@ -10,48 +20,30 @@ defmodule Servy.Handler do
 
   end
 
-  def parse(request) do
-    [method, path, _] = request 
-                        |> String.split("\n") 
-                        |> List.first 
-                        |> String.split(" ")
 
-     %{ method: method, path: path,  status: nil, resp_body: "" }
-  end
-
-  def track(%{status: 404, path: path} = conv) do
-    IO.puts "Warning: #{path} is on the loose!"
-    conv
-  end
-
-  def track(conv), do: conv
-
-  def log(conv), do: IO.inspect conv
-
-  def rewrite_path(%{path: "/wildlife"}= conv) do 
-    %{ conv | path: "/wildthings" }
-  end
-
-  def rewrite_path(conv), do: conv
-
-  def route(conv) do 
-    route(conv, conv.method, conv.path)
-  end
-
-  def route(conv, "GET", "/wildthings") do 
+  def route(%{ method: "GET", path: "/wildthings"} = conv) do 
     %{ conv |  status: 200, resp_body: "Bears, Lions, Tigers" }
   end
 
-  def route(conv, "GET", "/bears") do
+  def route(%{ method: "GET", path: "/bears"} = conv) do
     %{ conv | status: 200, resp_body: "Teddy, Smokey, Paddington" }
   end
 
-  def route(conv, "GET", "/about") do
-    Path.expand("../pages", __DIR__)
+  def route(%{ method: "GET", path: "/about"} = conv) do
+    @pages_path
     |> Path.join("about.html")
     |> File.read
     |> handle_file(conv)
   end
+
+  def route(%{ method: "GET", path: "/bears/" <> id } = conv) do
+    %{ conv | status: 200, resp_body: "Bear #{id}" }
+  end
+
+  def route(%{ path: path } = conv) do 
+    %{ conv |  status: 404, resp_body: "No #{path} here!" }
+  end
+
 
   def handle_file({:ok, content}, conv) do
     %{ conv | status: 200, resp_body: content }
@@ -77,14 +69,6 @@ defmodule Servy.Handler do
         #%{ conv | status: 500, resp_body: "File error : #{reason}" }
     #end
   #end
-
-  def route(conv, "GET", "/bears/" <> id) do
-    %{ conv | status: 200, resp_body: "Bear #{id}" }
-  end
-
-  def route(conv, _method, path) do 
-    %{ conv |  status: 404, resp_body: "No #{path} here!" }
-  end
 
   def format_response(conv) do 
     """
